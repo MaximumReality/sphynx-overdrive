@@ -5,8 +5,8 @@ Welcome to **Maximum Reality**, a neon-drenched, cyber-cat arcade game featuring
 - 🏙 Procedurally generated neon city skyline  
 - 🦋 Flying butterflies and particle overlays  
 - 🔥 Firewalls and data nodes to collect  
-- 🐭 Mochkil, the snack-stealing mischief-maker  
-- 🐈‍⬛ Hacker cat you control with your mouse  
+- 🐈‍⬛ Mochkil, the snack-stealing mischief-maker  
+- 😸  Hacker cat you control with your mouse  
 - 💻 Holographic news desk cameo by Azul  
 
 ---
