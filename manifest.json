@@ -1,10 +1,11 @@
 {
   "name": "Sphynx Overdrive",
   "short_name": "SphynxHacker",
-  "start_url": "index.html",
+  "start_url": "/sphynx-overdrive/index.html",
   "display": "standalone",
   "background_color": "#050505",
   "theme_color": "#ff00ff",
+  "description": "Maximum Reality PWS: Azul, Mochkil, glitchy holograms and neon chaos.",
   "icons": [
     {
       "src": "logo.png",
