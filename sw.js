@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sphynx-v2'; // Incremented version
+const CACHE_NAME = 'sphynx-v3'; // Incremented to v3
 const ASSETS = [
   '/sphynx-overdrive/',
   '/sphynx-overdrive/index.html',
