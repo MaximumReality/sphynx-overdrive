@@ -2,7 +2,15 @@ const CACHE_NAME = 'sphynx-v1';
 const ASSETS = [
   'index.html',
   'manifest.json',
+  'flyazulo.png',
+  'mochkil_front_kart.png',
+  'mochkil_walk_right_cake.png',
+  'logo.png',
+  'hacker-favicon.PNG'
   'sw.js'
+];
+
+  
   // Add any additional files you want cached: e.g., images/icons
 ];
 
