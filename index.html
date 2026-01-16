@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maximum Reality Game</title>
+<style>
+/* --- Container --- */
+#game-container {
+    position: relative;
+    width: 400px;
+    height: 600px;
+    background: #050505;
+    border: 4px solid #ff00ff;
+    box-shadow: 0 0 20px #ff00ff;
+    overflow: hidden;
+    margin: 20px auto;
+    font-family: 'Courier New', monospace;
+}
+
+/* --- Canvases --- */
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* --- UI --- */
+#ui {
+    position: absolute;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    color: #00ffff;
+    text-shadow: 0 0 5px #00ffff;
+    z-index: 10;
+}
+
+/* --- Game Over --- */
+#game-over {
+    display: none;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #ff00ff;
+    z-index: 20;
+    background: rgba(0,0,0,0.9);
+    padding: 20px;
+    border: 2px solid #00ffff;
+}
+
+button {
+    background: #00ffff;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Background -->
+    <canvas id="bgCanvas"></canvas>
+    <!-- Game / midground -->
+    <canvas id="gameCanvas"></canvas>
+    <!-- Particle / overlay -->
+    <canvas id="particleCanvas"></canvas>
+
+    <!-- UI -->
+    <div id="ui">
+        <div id="score">DATA: 0kb</div>
+        <div id="lives">NODES: 3</div>
+    </div>
+
+    <!-- Game over screen -->
+    <div id="game-over">
+        <h1>SYSTEM CRASHED</h1>
+        <p>Your Sphynx was disconnected.</p>
+        <button onclick="resetGame()">REBOOT</button>
+    </div>
+</div>
+
+<script>
+// --- Canvas Setup ---
+const bgCanvas = document.getElementById('bgCanvas');
+const bctx = bgCanvas.getContext('2d');
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const particleCanvas = document.getElementById('particleCanvas');
+const particleCtx = particleCanvas.getContext('2d');
+
+bgCanvas.width = canvas.width = particleCanvas.width = 400;
+bgCanvas.height = canvas.height = particleCanvas.height = 600;
+
+// --- Game Variables ---
+let score = 0, lives = 3, gameActive = true, frame = 0;
+let obstacles = [], buildings = [], butterflies = [];
+let overdrive = false, screenShake = 0;
+
+// --- Player (Cat) ---
+const cat = { x: 180, y: 520, width: 40, height: 40 };
+
+// --- Buildings ---
+class Building {
+    constructor(x, speedFactor) {
+        this.x = x;
+        this.y = -200;
+        this.width = Math.random()*60+40;
+        this.height = Math.random()*200+100;
+        this.speedFactor = speedFactor;
+        this.color = `hsl(280,100%,${Math.random()*10+5}%)`;
+        this.neonColor = Math.random()>0.5 ? '#ff00ff' : '#00ffff';
+    }
+    draw() {
+        bctx.fillStyle = this.color;
+        bctx.fillRect(this.x,this.y,this.width,this.height);
+        bctx.fillStyle = this.neonColor;
+        for(let i=5;i<this.width;i+=15){
+            for(let j=5;j<this.height;j+=20){
+                if(Math.random()>0.7){
+                    bctx.globalAlpha=0.5;
+                    bctx.fillRect(this.x+i,this.y+j,5,5);
+                }
+            }
+        }
+        bctx.globalAlpha=1;
+        bctx.strokeStyle=this.neonColor;
+        bctx.lineWidth=2;
+        bctx.strokeRect(this.x,this.y,this.width,this.height);
+    }
+    update(gameSpeed){ this.y += gameSpeed*this.speedFactor; }
+}
+function initCity(){ for(let i=0;i<10;i++) buildings.push(new Building(Math.random()*canvas.width,0.3)); }
+function updateCity(){
+    bctx.fillStyle='#050005';
+    bctx.fillRect(0,0,bgCanvas.width,bgCanvas.height);
+    const speed = 2+(score/100);
+    buildings.forEach((b,i)=>{
+        b.update(speed);
+        b.draw();
+        if(b.y>bgCanvas.height) buildings[i]=new Building(Math.random()*canvas.width,0.3);
+    });
+}
+initCity();
+
+// --- Butterflies ---
+class Butterfly {
+    constructor(x,y){
+        this.x=x; this.y=y;
+        this.size=Math.random()*8+4;
+        this.speedX=Math.random()*2-1; this.speedY=Math.random()*2-1;
+        this.color=`hsl(${Math.random()*360},80%,60%)`;
+        this.opacity=Math.random()*0.6+0.4;
+    }
+    update(){
+        this.x+=this.speedX; this.y+=this.speedY;
+        if(this.x<0||this.x>canvas.width)this.speedX*=-1;
+        if(this.y<0||this.y>canvas.height)this.speedY*=-1;
+    }
+    draw(ctx){
+        ctx.globalAlpha=this.opacity;
+        ctx.fillStyle=this.color;
+        ctx.beginPath();
+        ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha=1;
+    }
+}
+for(let i=0;i<40;i++) butterflies.push(new Butterfly(Math.random()*canvas.width,Math.random()*canvas.height));
+function updateButterflies(){
+    particleCtx.clearRect(0,0,particleCanvas.width,particleCanvas.height);
+    butterflies.forEach(b=>{ b.update(); b.draw(particleCtx); });
+}
+
+// --- Obstacles ---
+function spawnObstacle(){
+    if(frame%60===0){
+        const type=Math.random()>0.3?'firewall':'data';
+        obstacles.push({ x:Math.random()*(canvas.width-40),y:-50,width:type==='firewall'?60:30,height:10,type:type,color:type==='firewall'?'#ff0055':'#00ff00',speed:3+(score/100)});
+    }
+}
+function updateObstacles(){
+    obstacles.forEach((obs,index)=>{
+        obs.y+=obs.speed;
+        ctx.fillStyle=obs.color;
+        ctx.shadowBlur=10; ctx.shadowColor=obs.color;
+        ctx.fillRect(obs.x,obs.y,obs.width,obs.height);
+        if(cat.x<obs.x+obs.width && cat.x+cat.width>obs.x &&
+           cat.y<obs.y+obs.height && cat.y+cat.height>obs.y){
+            if(obs.type==='firewall'){
+                if(overdrive){ score+=50; screenShake=10; obstacles.splice(index,1); }
+                else { lives--; screenShake=20; obstacles.splice(index,1); if(lives<=0) endGame(); }
+            } else { score+=10; obstacles.splice(index,1); }
+            document.getElementById('score').innerText=`DATA: ${score}kb`;
+            document.getElementById('lives').innerText=`NODES: ${lives}`;
+        }
+        if(obs.y>canvas.height) obstacles.splice(index,1);
+    });
+}
+
+// --- Player Draw ---
+function drawCat(){
+    ctx.font='40px serif';
+    ctx.shadowBlur=15; ctx.shadowColor='#00ffff';
+    ctx.fillText('🐈‍⬛',cat.x,cat.y+35);
+    ctx.shadowBlur=0;
+}
+
+// --- Screen Shake ---
+function applyScreenShake(){
+    if(screenShake>0){
+        const dx=Math.random()*screenShake-screenShake/2;
+        const dy=Math.random()*screenShake-screenShake/2;
+        ctx.setTransform(1,0,0,1,dx,dy);
+        screenShake*=0.9;
+    } else ctx.setTransform(1,0,0,1,0,0);
+}
+
+// --- Overdrive ---
+function activateOverdrive(){ 
+    overdrive=true; 
+    canvas.style.filter="hue-rotate(90deg) brightness(1.5)"; 
+    setTimeout(()=>{overdrive=false; canvas.style.filter="none";},5000); 
+}
+
+// --- Mochkil ---
+const mochkil = { x:-50, y:450, width:40, height:40, speed:3, direction:1, spriteColor:'#ff9900', carryingSnack:true };
+function drawMochkil(){
+    ctx.fillStyle = mochkil.spriteColor;
+    ctx.fillRect(mochkil.x, mochkil.y, mochkil.width, mochkil.height);
+    if(mochkil.carryingSnack){
+        ctx.fillStyle='#ff00ff';
+        ctx.fillRect(mochkil.x+10, mochkil.y-10, 20, 10);
+    }
+}
+function updateMochkil(){
+    mochkil.x += mochkil.speed * mochkil.direction;
+    if(mochkil.x>canvas.width || mochkil.x< -mochkil.width) mochkil.direction*=-1;
+}
+function mochkilInteractions(){
+    obstacles.forEach((obs,index)=>{
+        if(mochkil.x<obs.x+obs.width && mochkil.x+mochkil.width>obs.x &&
+           mochkil.y<obs.y+obs.height && mochkil.y+mochkil.height>obs.y){
+            if(obs.type==='data'){ score+=15; obstacles.splice(index,1); 
+                bctx.fillStyle='#ff00ff'; bctx.fillRect(mochkil.x+10, mochkil.y-10, 10,5);
+            } else if(obs.type==='firewall'){ mochkil.direction*=-1; }
+            document.getElementById('score').innerText=`DATA: ${score}kb`;
+        }
+    });
+}
+
+// --- Azul Desk ---
+const azulDesk = { x:50, y:50, width:80, height:40 };
+function drawAzulDesk(){
+    ctx.fillStyle='rgba(0,255,255,0.3)';
+    ctx.fillRect(azulDesk.x, azulDesk.y, azulDesk.width, azulDesk.height);
+    ctx.fillStyle='white';
+    ctx.beginPath();
+    ctx.arc(azulDesk.x+azulDesk.width/2, azulDesk.y-10, 10,0,Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle='#00ffff';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    for(let i=0;i<3;i++){
+        let yOffset = Math.sin(frame*0.1+i)*3;
+        ctx.moveTo(azulDesk.x+5, azulDesk.y+10+i*10+yOffset);
+        ctx.lineTo(azulDesk.x+azulDesk.width-5, azulDesk.y+10+i*10+yOffset);
+    }
+    ctx.stroke();
+}
+
+// --- Game Loop ---
+function update(){
+    if(!gameActive) return;
+    updateCity();
+    applyScreenShake();
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawCat();
+    spawnObstacle();
+    updateObstacles();
+    mochkilInteractions();
+    drawMochkil();
+    updateMochkil();
+    drawAzulDesk();
+    updateButterflies();
+    frame++;
+    requestAnimationFrame(update);
+}
+update();
+
+// --- Controls ---
+window.addEventListener('mousemove',(e)=>{
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    cat.x = Math.min(Math.max(mouseX - cat.width/2, 0), canvas.width - cat.width);
+});
+
+// --- Game Over / Reset ---
+function endGame(){ gameActive=false; document.getElementById('game-over').style.display='block'; }
+function resetGame(){ score=0; lives=3; obstacles=[]; gameActive=true; document.getElementById('game-over').style.display='none'; document.getElementById('score').innerText='DATA: 0kb'; document.getElementById('lives').innerText='NODES: 3'; update(); }
+
+</script>
+</body>
+</html>
