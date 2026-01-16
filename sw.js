@@ -6,7 +6,7 @@ const ASSETS = [
   'mochkil_front_kart.png',
   'mochkil_walk_right_cake.png',
   'logo.png',
-  'hacker-favicon.PNG'
+  'hacker-favicon.PNG',
   'sw.js'
 ];
 
