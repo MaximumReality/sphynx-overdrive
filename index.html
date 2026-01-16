@@ -3,142 +3,249 @@
 <head>
 <meta charset="UTF-8">
 <title>Sphynx Overdrive: Maximum Reality</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<link rel="manifest" href="manifest.json">
 <style>
-body { margin:0; background:#000; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
-#game-container { position:relative; width:400px; height:600px; background:#050505; border:4px solid #ff00ff; box-shadow:0 0 20px #ff00ff; font-family:'Courier New', monospace; overflow:hidden; }
-canvas { position:absolute; top:0; left:0; }
-#ui { position:absolute; width:100%; display:flex; justify-content:space-between; padding:10px; color:#00ffff; text-shadow:0 0 5px #00ffff; z-index:10; box-sizing:border-box; }
-#game-over { display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; color:#ff00ff; z-index:20; background:rgba(0,0,0,0.9); padding:20px; border:2px solid #00ffff; }
-button { background:#00ffff; border:none; padding:10px 20px; cursor:pointer; font-weight:bold; }
-.crt-overlay { position:absolute; top:0; left:0; width:100%; height:100%; background:linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.1) 50%), linear-gradient(90deg, rgba(255,0,0,0.03), rgba(0,255,0,0.01), rgba(0,0,255,0.03)); background-size:100% 3px,3px 100%; pointer-events:none; z-index:5; }
+  body {
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+  }
+  #game-container {
+    position: relative;
+    width: 400px;
+    height: 600px;
+    background: #050505;
+    border: 4px solid #ff00ff;
+    box-shadow: 0 0 20px #ff00ff;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+  }
+  canvas { position: absolute; top: 0; left: 0; }
+  #ui {
+    position: absolute;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    color: #00ffff;
+    text-shadow: 0 0 5px #00ffff;
+    z-index: 10;
+    box-sizing: border-box;
+  }
+  #game-over {
+    display: none;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #ff00ff;
+    z-index: 20;
+    background: rgba(0,0,0,0.9);
+    padding: 20px;
+    border: 2px solid #00ffff;
+  }
+  button {
+    background: #00ffff;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .crt-overlay {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.1) 50%),
+                linear-gradient(90deg, rgba(255,0,0,0.03), rgba(0,255,0,0.01), rgba(0,0,255,0.03));
+    background-size: 100% 3px, 3px 100%;
+    pointer-events: none; z-index: 5;
+  }
 </style>
 </head>
 <body>
+
 <div id="game-container">
-    <canvas id="bgCanvas"></canvas>
-    <canvas id="gameCanvas"></canvas>
-    <canvas id="particleCanvas"></canvas>
-
-    <div id="ui">
-        <div id="score">DATA: 0kb</div>
-        <div id="lives">NODES: 3</div>
-    </div>
-    <div class="crt-overlay"></div>
-
-    <div id="game-over">
-        <h1>SYSTEM CRASHED</h1>
-        <button onclick="resetGame()">REBOOT</button>
-    </div>
+  <canvas id="bgCanvas"></canvas>
+  <canvas id="gameCanvas"></canvas>
+  <canvas id="particleCanvas"></canvas>
+  
+  <div id="ui">
+    <div id="score">DATA: 0kb</div>
+    <div id="lives">NODES: 3</div>
+  </div>
+  
+  <div class="crt-overlay"></div>
+  
+  <div id="game-over">
+    <h1>SYSTEM CRASHED</h1>
+    <button onclick="resetGame()">REBOOT</button>
+  </div>
 </div>
 
 <script>
-// --- Load Images ---
-const azulImg = new Image();
-azulImg.src = 'flyazulo.png'; // Azul floating news desk cat
+const W = 400, H = 600;
 
-const mochkilNormal = new Image();
-mochkilNormal.src = 'mochkil_front_kart.png'; // Mochkil normal
+// Canvas contexts
+const bgCanvas = document.getElementById('bgCanvas'), bctx = bgCanvas.getContext('2d');
+const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
+const pCanvas = document.getElementById('particleCanvas'), pctx = pCanvas.getContext('2d');
 
-const mochkilSnack = new Image();
-mochkilSnack.src = 'mochkil_walk_right_cake.png'; // Mochkil carrying snack
+bgCanvas.width = canvas.width = pCanvas.width = W;
+bgCanvas.height = canvas.height = pCanvas.height = H;
+
+// Game variables
+let score = 0, lives = 3, frame = 0, gameActive = true, screenShake = 0;
+let obstacles = [], buildings = [], butterflies = [];
+const cat = { x: 180, y: 520, w: 40, h: 40 };
+
+// --- Images ---
+const azulImg = new Image(); azulImg.src = 'flyazulo.png';
+const mochkilNormal = new Image(); mochkilNormal.src = 'mochkil_front_kart.png';
+const mochkilSnack = new Image(); mochkilSnack.src = 'mochkil_walk_right_cake.png';
 
 // --- Mochkil ---
 const mochkil = { x: -50, y: 450, w: 40, h: 40, speed: 2, dir: 1, carryingSnack: true };
-
-// --- Draw Mochkil ---
 function drawMochkil() {
-    const img = mochkil.carryingSnack ? mochkilSnack : mochkilNormal;
-    ctx.drawImage(img, mochkil.x, mochkil.y, mochkil.w, mochkil.h);
+  const img = mochkil.carryingSnack ? mochkilSnack : mochkilNormal;
+  ctx.drawImage(img, mochkil.x, mochkil.y, mochkil.w, mochkil.h);
 }
 
-// --- Draw Azul ---
-function drawAzul() {
-    ctx.drawImage(azulImg, 50, 50, 80, 40);
+// --- Azul Desk ---
+function drawAzulDesk() {
+  ctx.drawImage(azulImg, 50, 50, 100, 40);
 }
 
-// --- Update Function ---
-function update() {
-    if (!gameActive) return;
+// --- Buildings ---
+class Building {
+  constructor(x) {
+    this.x = x; this.w = Math.random()*60+40; this.h = Math.random()*200+100;
+    this.y = Math.random()*H; this.speed = 0.5;
+    this.color = `hsl(280,100%,${Math.random()*10+2}%)`;
+  }
+  update(speed){ 
+    this.y += speed*this.speed; 
+    if(this.y > H){ this.y = -this.h; this.x = Math.random()*W; }
+  }
+  draw(){
+    bctx.fillStyle = this.color;
+    bctx.fillRect(this.x,this.y,this.w,this.h);
+    bctx.strokeStyle='#ff00ff22';
+    bctx.strokeRect(this.x,this.y,this.w,this.h);
+  }
+}
 
-    // --- Background City ---
-    bctx.fillStyle = '#050005';
-    bctx.fillRect(0, 0, W, H);
-    buildings.forEach(b => { b.update(2 + score / 100); b.draw(); });
+// --- Butterflies ---
+class Butterfly {
+  constructor(){ this.x=Math.random()*W; this.y=Math.random()*H; this.vx=Math.random()*2-1; this.vy=Math.random()*2-1; }
+  update(){ this.x+=this.vx; this.y+=this.vy; if(this.x<0||this.x>W)this.vx*=-1; if(this.y<0||this.y>H)this.vy*=-1; }
+  draw(){ pctx.fillStyle='#00ffff44'; pctx.beginPath(); pctx.arc(this.x,this.y,2,0,Math.PI*2); pctx.fill(); }
+}
 
-    // --- Clear Game Layer ---
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, W, H);
-    applyScreenShake();
+// --- Screen Shake ---
+function applyScreenShake() {
+  if(screenShake > 0){
+    ctx.translate(Math.random()*screenShake - screenShake/2, Math.random()*screenShake - screenShake/2);
+    screenShake *= 0.9;
+  }
+}
 
-    // --- Draw Azul and Mochkil ---
-    drawAzul();
-    drawMochkil();
-    mochkil.x += mochkil.speed * mochkil.dir;
-    if (mochkil.x > W + 50 || mochkil.x < -100) mochkil.dir *= -1;
+// --- Update Loop ---
+function update(){
+  if(!gameActive) return;
 
-    // --- Player Cat ---
-    ctx.font = '40px serif';
-    ctx.shadowBlur = 15; ctx.shadowColor = '#00ffff';
-    ctx.fillText('🐈‍⬛', cat.x, cat.y + 35);
-    ctx.shadowBlur = 0;
+  // Background
+  bctx.fillStyle = '#050005'; bctx.fillRect(0,0,W,H);
+  buildings.forEach(b=>{ b.update(2+score/100); b.draw(); });
 
-    // --- Obstacles ---
-    if (frame % 60 === 0) {
-        const type = Math.random() > 0.3 ? 'firewall' : 'data';
-        obstacles.push({ x: Math.random() * (W - 40), y: -50, type, speed: 3 + score / 100 });
+  // Game Layer
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,W,H);
+  applyScreenShake();
+  
+  drawAzulDesk();
+  drawMochkil();
+  mochkil.x += mochkil.speed * mochkil.dir;
+  if(mochkil.x>W+50 || mochkil.x<-100) mochkil.dir*=-1;
+
+  // Player Cat
+  ctx.font='40px serif';
+  ctx.shadowBlur=15; ctx.shadowColor='#00ffff';
+  ctx.fillText('🐈‍⬛',cat.x,cat.y+35);
+  ctx.shadowBlur=0;
+
+  // Obstacles
+  if(frame%60===0){
+    const type = Math.random()>0.3?'firewall':'data';
+    obstacles.push({ x:Math.random()*(W-40), y:-50, type, speed:3+score/100 });
+  }
+  obstacles.forEach((o,i)=>{
+    o.y += o.speed;
+    ctx.fillStyle = o.type==='firewall'?'#ff0055':'#00ff00';
+    ctx.fillRect(o.x,o.y,o.type==='firewall'?60:20,10);
+
+    if(cat.x<o.x+(o.type==='firewall'?60:20) && cat.x+40>o.x && cat.y<o.y+10 && cat.y+40>o.y){
+      if(o.type==='firewall'){ lives--; screenShake=20;
+        if(lives<=0){ gameActive=false; document.getElementById('game-over').style.display='block'; }
+      } else { score+=10; screenShake=5; }
+      obstacles.splice(i,1);
+      document.getElementById('score').innerText = `DATA: ${score}kb`;
+      document.getElementById('lives').innerText = `NODES: ${lives}`;
     }
+    if(o.y>H) obstacles.splice(i,1);
+  });
 
-    obstacles.forEach((o, i) => {
-        o.y += o.speed;
-        ctx.fillStyle = o.type === 'firewall' ? '#ff0055' : '#00ff00';
-        ctx.fillRect(o.x, o.y, o.type === 'firewall' ? 60 : 20, 10);
+  // Particles
+  pctx.clearRect(0,0,W,H);
+  butterflies.forEach(b=>{ b.update(); b.draw(); });
 
-        // --- Cat collision ---
-        if (cat.x < o.x + (o.type === 'firewall' ? 60 : 20) &&
-            cat.x + 40 > o.x &&
-            cat.y < o.y + 10 &&
-            cat.y + 40 > o.y) {
-            if (o.type === 'firewall') {
-                lives--; screenShake = 20;
-                if (lives <= 0) { gameActive = false; document.getElementById('game-over').style.display = 'block'; }
-            } else {
-                score += 10; screenShake = 5;
-            }
-            obstacles.splice(i, 1);
-            document.getElementById('score').innerText = `DATA: ${score}kb`;
-            document.getElementById('lives').innerText = `NODES: ${lives}`;
-        }
+  frame++;
+  requestAnimationFrame(update);
+}
 
-        if (o.y > H) obstacles.splice(i, 1);
-    });
+// --- Controls ---
+function updateCatX(x){
+  cat.x = Math.min(Math.max(x,0),W-cat.w);
+}
+window.addEventListener('mousemove', e=>{
+  const rect = canvas.getBoundingClientRect();
+  updateCatX(e.clientX - rect.left - cat.w/2);
+});
+window.addEventListener('touchmove', e=>{
+  if(!gameActive) return;
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  updateCatX(touch.clientX - rect.left - cat.w/2);
+  e.preventDefault();
+},{passive:false});
 
-    // --- Mochkil Interactions (snatching data) ---
-    obstacles.forEach((o, i) => {
-        if (
-            mochkil.x < o.x + (o.type === 'firewall' ? 60 : 20) &&
-            mochkil.x + mochkil.w > o.x &&
-            mochkil.y < o.y + 10 &&
-            mochkil.y + mochkil.h > o.y
-        ) {
-            if (o.type === 'data') {
-                score += 15; // Mochkil bonus points
-                mochkil.carryingSnack = true; // optional: show snack
-                obstacles.splice(i, 1);
-            } else if (o.type === 'firewall') {
-                mochkil.dir *= -1; // bounce back
-            }
-            document.getElementById('score').innerText = `DATA: ${score}kb`;
-        }
-    });
+// --- Reset ---
+function resetGame(){
+  score=0; lives=3; obstacles=[]; gameActive=true;
+  document.getElementById('game-over').style.display='none';
+  document.getElementById('score').innerText='DATA: 0kb';
+  document.getElementById('lives').innerText='NODES: 3';
+  update();
+}
 
-    // --- Butterflies ---
-    pctx.clearRect(0, 0, W, H);
-    butterflies.forEach(b => { b.update(); b.draw(); });
+// --- Init ---
+for(let i=0;i<10;i++) buildings.push(new Building(Math.random()*W));
+for(let i=0;i<30;i++) butterflies.push(new Butterfly());
 
-    frame++;
-    requestAnimationFrame(update);
+// --- Wait for images to load ---
+let imagesLoaded = 0;
+[azulImg, mochkilNormal, mochkilSnack].forEach(img=>{
+  img.onload = ()=>{
+    imagesLoaded++;
+    if(imagesLoaded===3) update();
+  }
+});
+
+// --- Optional: Service Worker ---
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js')
+    .then(()=>console.log('Maximum Reality: Offline Mode Active'))
+    .catch(err=>console.log('PWA Error:',err));
 }
 </script>
 </body>
