@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://maximumreality.github.io/sphynx-overdrive/sphynx_overdrive.jpg" width="400" alt="Sphynx Overdrive Logo">
+</p>
+
 # 🎮 SPHYNX OVERDRIVE: MAXIMUM REALITY 🐈‍⬛
 
 Welcome to the grid. **Sphynx Overdrive** is a neon-drenched, retro-hacker survival experience where you navigate the digital void as a cyber-cat. Optimized for mobile and built as a full Progressive Web App (PWA).
