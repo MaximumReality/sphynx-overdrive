@@ -1,16 +1,19 @@
 {
-  "name": "Sphynx Overdrive",
+  "name": "Sphynx Overdrive: Maximum Reality",
   "short_name": "SphynxHacker",
   "start_url": "/sphynx-overdrive/index.html",
+  "scope": "/sphynx-overdrive/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#050505",
   "theme_color": "#ff00ff",
-  "description": "Maximum Reality PWS: Azul, Mochkil, glitchy holograms and neon chaos.",
+  "description": "Retro-hacker survival in Maximum Reality.",
   "icons": [
     {
       "src": "logo.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "hacker-favicon.PNG",
